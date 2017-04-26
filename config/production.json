@@ -1,0 +1,14 @@
+{
+  "port" : 8029,
+  "live_db_name": "driver_live",
+  "servers": {},
+  "db_config": {
+    "db_config_read" : {
+      "connectionLimit" : 10,
+      "host": "localhost",
+      "user" : "driverApp",
+      "password": "1234567890",
+      "database": "driver_live"
+    }
+  }
+}
