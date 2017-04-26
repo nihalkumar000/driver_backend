@@ -15,6 +15,7 @@ var config          = require('config');
 var compression     = require('compression');
 
 var logger          = require('./logging');
+var redis           = require('./redis');
 var utils           = require('./controllers/utils');
 var mysqlLib        = require('./mysqlLib');
 var driver          = require('./routes/driver');
@@ -36,7 +37,8 @@ app.use(bodyParser.urlencoded({
 app.use(methodOverride());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/ping', function(req, res){res.send('Ping Pong!!')})
+app.get('/ping', function(req, res){res.send('Ping Pong!!')});
+
 
 // development only
 if ('development' == app.get('env')) {

@@ -10,5 +10,9 @@
       "password": "0987654321",
       "database": "driver_dev"
     }
+  },
+  "redisSettings" : {
+    "port" : 6379,
+    "host" : "localhost"
   }
 }
