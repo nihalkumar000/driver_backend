@@ -1,19 +1,21 @@
 var config = require("config");
 
 
-var redis_config = {
+var options = {
     host: config.get('redisSettings.host'),
     port: config.get('redisSettings.port')
 };
 
-var redis = require('redis').createClient(redis_config.port, redis_config.host);
+var redis = require('redis').createClient(options);
 
 redis.on("connect", function(err) {
     redis.connected = true;
+    console.log("redis connected");
 });
 
 redis.on("error", function(err) {
     redis.connected = false;
+    console.error("redis error in connection");
 });
 
-module.exports.redis = redis;
+module.exports = redis;

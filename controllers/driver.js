@@ -6,6 +6,7 @@ var async       = require("async");
 var redis       = require("../redis");
 var constants   = require("../constants");
 
+
 exports.rideRequest     = rideRequest;
 exports.acceptRequest   = acceptRequest;
 
@@ -38,13 +39,14 @@ function acceptRequest(req, res){
     };
     logging.trace(handlerInfo, {REQUEST: req.body});
 
-    var requestId = parseInt(req.body.request_id);
-    var driver_id = parseInt(req.body.driver_id);
+    var requestId = parseInt(req.body.requestId);
+    var driver_id = parseInt(req.body.driverId);
+    var hide_id   = parseInt(req.body.hideId);
     var tasks = [];
 
-    tasks.push(checkRedisLock.bind(null, handlerInfo, requestId));
-    tasks.push(redisLock.bind(null, handlerInfo, requestId));
-    tasks.push(updateEngagements.bind(null, handlerInfo, requestId, driver_id));
+    tasks.push(checkRedisLock.bind(null, handlerInfo, hide_id));
+    tasks.push(redisLock.bind(null, handlerInfo, hide_id));
+    tasks.push(updateEngagements.bind(null, handlerInfo, requestId, hide_id, driver_id));
     async.waterfall(tasks, function(asyncErr, asyncData){
         if(asyncErr){
             logging.error(handlerInfo, {ERROR : asyncErr.message});
@@ -70,11 +72,12 @@ function getAvailableDrivers(handlerInfo, cb){
 
 function putEngagements(handlerInfo, customerId, driverIdArr, cb){
     var values = [];
+    var rand = Math.random()*100000;
     for(var i=0; i< driverIdArr.length; i++){
-        var driver = [driverIdArr[i].driver_id, customerId, 1];
+        var driver = [driverIdArr[i].driver_id, customerId, 1, rand];
         values.push(driver);
     }
-    var putEng = "INSERT INTO tb_requests(driver_id, customer_id, status) VALUES ?";
+    var putEng = "INSERT INTO tb_requests(driver_id, customer_id, status, hide_id) VALUES ?";
     var engsQ = connection.query(putEng, [values], function(err, engQData){
         logging.logDatabaseQuery(handlerInfo, 'Put', err, engQData, engsQ.sql);
         if(err){
@@ -85,25 +88,25 @@ function putEngagements(handlerInfo, customerId, driverIdArr, cb){
 }
 
 
-function updateEngagements(handlerInfo, requestId, driverId, cb){
+function updateEngagements(handlerInfo, requestId, hideId, driverId, cb){
     var tasks = [];
     tasks.push(updateDriverEng.bind(null, handlerInfo, requestId, driverId));
-    tasks.push(updateOtherDriverEng.bind(null, handlerInfo, requestId, driverId));
+    tasks.push(updateOtherDriverEng.bind(null, handlerInfo, hideId, driverId));
     
     async.series(tasks, function(asyncErr, asyncData){
         if(asyncErr){
             logging.error(handlerInfo, {ERROR : asyncErr.message});
-            return res.send(asyncErr);
+            return cb(asyncErr);
         }
-        res.send("Alloted Successfully!!");
+        cb(null, "Alloted Successfully!!");
     });
     
     function updateDriverEng(handlerInfo, requestId, driverId, cb){
         var driverEng = "UPDATE tb_requests AS a JOIN tb_drivers as b " +
         "ON a.driver_id = b.driver_id " +
-        "SET a.status = ?, b.isavailable = 0 " +
+        "SET a.status = ?, b.is_available = 0 " +
         "WHERE a.driver_id = ? AND a.request_id = ?";
-        var driverEngQ = connection.query(driverEng, [constants.rideStatus.ACCEPTED, requestId, driverId], function(uErr, uData){
+        var driverEngQ = connection.query(driverEng, [constants.rideStatus.ACCEPTED, driverId, requestId], function(uErr, uData){
             if(uErr){
                 logging.logDatabaseQuery(handlerInfo, 'Updating Eng Err', uErr, uData, driverEngQ.sql); 
                 return cb(uErr);
@@ -111,11 +114,11 @@ function updateEngagements(handlerInfo, requestId, driverId, cb){
             cb();
         });
     }
-    function updateOtherDriverEng(handlerInfo, requestId, driverId, cb){
+    function updateOtherDriverEng(handlerInfo, hideId, driverId, cb){
         var driverEng = "UPDATE tb_requests "+
             "SET status = ? "+
-            "WHERE request_id = ? AND driver_id != ?";
-        var driverEngQ = connection.query(driverEng, [constants.rideStatus.ALLOTED_TO_OTHER_DRIVER, requestId, driverId], function(uErr, uData){
+            "WHERE hide_id = ? AND driver_id != ?";
+        var driverEngQ = connection.query(driverEng, [constants.rideStatus.ALLOTED_TO_OTHER_DRIVER, hideId, driverId], function(uErr, uData){
             if(uErr){
                 logging.logDatabaseQuery(handlerInfo, 'Updating Eng Err', uErr, uData, driverEngQ.sql);
                 return cb(uErr);
@@ -128,8 +131,8 @@ function updateEngagements(handlerInfo, requestId, driverId, cb){
 }
 
 
-function checkRedisLock(handlerInfo, requestId, cb){
-    redis.exists(requestId, function(eErr, doesExist) {
+function checkRedisLock(handlerInfo, hideId, cb){
+    redis.exists(hideId, function(eErr, doesExist) {
         if(eErr){
             return cb(eErr);
         }
@@ -138,13 +141,13 @@ function checkRedisLock(handlerInfo, requestId, cb){
 }
 
 
-function redisLock(handlerInfo, requestId, doesExist,  cb){
+function redisLock(handlerInfo, hideId, doesExist,  cb){
     if(doesExist){
         return cb("Exists");
     }
-    redis.set(requestId, "true", function(eErr, result) {
+    redis.set(hideId, "true", function(eErr, result) {
         if(!eErr) {
-            redis.expire(requestId, 60);
+            redis.expire(hideId, 60);
         }
         cb();
     });
