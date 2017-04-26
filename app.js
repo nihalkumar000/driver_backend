@@ -39,6 +39,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/ping', function(req, res){res.send('Ping Pong!!')});
 
+app.post('/request_ride',                   driver.request_ride);
+app.post('/accept_request',                 driver.accept_request);
+
 
 // development only
 if ('development' == app.get('env')) {

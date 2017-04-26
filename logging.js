@@ -13,7 +13,10 @@ var debuggingPermissions = {
 
     driver      : {
         loggingEnabled      : true,
-        defaultLoggingLevel : levels.trace
+        defaultLoggingLevel : levels.trace,
+
+        rideRequest         : true,
+        acceptRequest      : true
     }
 };
 exports.trace               = trace;

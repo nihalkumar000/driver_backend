@@ -5,10 +5,10 @@
   "db_config": {
     "db_config_driver" : {
       "connectionLimit" : 10,
-      "host": "localhost",
-      "user" : "driverApp",
-      "password": "0987654321",
-      "database": "driver_dev"
+      "host": "glug.nith.ac.in",
+      "user" : "nihal",
+      "password": "corecorecore",
+      "database": "nihal_temp"
     }
   },
   "redisSettings" : {
