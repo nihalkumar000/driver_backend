@@ -84,3 +84,23 @@ function logDatabaseQuery(handlerInfo, eventFired, error, result, query){
             module.exports.trace(handlerInfo, {event : eventFired}, {error : error}, {result : result});
     }
 }
+
+
+function isLoggingEnabled(module, handler){
+    // Check if the logging has been enabled
+    if(!debuggingPermissions.loggingEnabled){
+        return false;
+    }
+
+    // Check if the logging has been enabled for the complete module
+    if (!debuggingPermissions[module].loggingEnabled){
+        return false;
+    }
+
+    // Check if the logging has been enabled for the particular handler function for the module
+    if (!debuggingPermissions[module][handler]){
+        return false;
+    }
+
+    return true;
+}

@@ -14,13 +14,16 @@ var fs              = require('fs');
 var config          = require('config');
 var compression     = require('compression');
 
+connection = undefined;
+
 var logger          = require('./logging');
+var mysqlLib        = require('./mysqlLib');
 var redis           = require('./redis');
 var utils           = require('./controllers/utils');
-var mysqlLib        = require('./mysqlLib');
 var driver          = require('./routes/driver');
+var read            = require('./routes/read');
 
-connection = undefined;
+
 
 var app = express();
 
@@ -39,8 +42,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/ping', function(req, res){res.send('Ping Pong!!')});
 
-app.post('/request_ride',                   driver.request_ride);
-app.post('/accept_request',                 driver.accept_request);
+app.post('/requestRide',                   driver.request_ride);
+app.post('/acceptRequest',                 driver.accept_request);
+app.post('/getDriverAppData',              read.get_driver_app_data);
 
 
 // development only

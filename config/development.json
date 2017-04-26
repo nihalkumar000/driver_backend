@@ -1,11 +1,11 @@
 {
   "port" : 8026,
-  "live_db_name": "driver_dev",
+  "live_db_name": "nihal_temp",
   "servers": {},
   "db_config": {
     "db_config_driver" : {
       "connectionLimit" : 10,
-      "host": "glug.nith.ac.in",
+      "host": "14.139.56.19",
       "user" : "nihal",
       "password": "corecorecore",
       "database": "nihal_temp"

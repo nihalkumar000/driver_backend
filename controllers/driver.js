@@ -16,7 +16,8 @@ function rideRequest(req, res) {
         apiModule: 'driver',
         apiHandler: 'rideRequest'
     };
-    loggingImp.trace(handlerInfo, {REQUEST: req.body});
+    logging.trace(handlerInfo, {REQUEST: req.body});
+    var customer_id = parseInt(req.body.customerId);
     var tasks = [];
     tasks.push(getAvailableDrivers.bind(null, handlerInfo));
     tasks.push(putEngagements.bind(null, handlerInfo, customer_id));
@@ -58,7 +59,7 @@ function acceptRequest(req, res){
 
 function getAvailableDrivers(handlerInfo, cb){
     var drivers = "select driver_id from tb_drivers where is_available = ?";
-    var driversQ = connection.query(drivers, [constants.rideStatus.REQUESTED], function(err, drivers){
+    var driversQ = connection.query(drivers, [1], function(err, drivers){
         logging.logDatabaseQuery(handlerInfo, 'Getting all available drivers', err, drivers, driversQ.sql);
         if(err){
             return cb(err);
@@ -67,13 +68,13 @@ function getAvailableDrivers(handlerInfo, cb){
     });
 }
 
-function putEngagements(handlerInfo, customer_id, driverIdArr, cb){
+function putEngagements(handlerInfo, customerId, driverIdArr, cb){
     var values = [];
     for(var i=0; i< driverIdArr.length; i++){
-        var driver = [driverIdArr.driver_id, customer_id, 1];
+        var driver = [driverIdArr[i].driver_id, customerId, 1];
         values.push(driver);
     }
-    var putEng = "INSERT INTO tb_requests (driver_id, customer_id, status) VALUES ?";
+    var putEng = "INSERT INTO tb_requests(driver_id, customer_id, status) VALUES ?";
     var engsQ = connection.query(putEng, [values], function(err, engQData){
         logging.logDatabaseQuery(handlerInfo, 'Put', err, engQData, engsQ.sql);
         if(err){
@@ -153,7 +154,7 @@ function getAvailableDrivers(handlerInfo){
     return newPromise(function(resolve, reject){
         var drivers = "select driver_id from tb_drivers where is_available = ?";
         var driversQ = connection.query(drivers, [1], function(err, drivers){
-            loggingImp.logDatabaseQuery(handlerInfo, 'Getting all available drivers', err, drivers, driversQ.sql);
+            logging.logDatabaseQuery(handlerInfo, 'Getting all available drivers', err, drivers, driversQ.sql);
             if(err){
                 return reject(err);
             }
@@ -171,7 +172,7 @@ function putEngagements(handlerInfo, driverIdArr, customer_id){
         }
         var putEng = "INSERT INTO tb_requests (driver_id, customer_id, status) VALUES ?";
         var engsQ = connection.query(putEng, [values], function(err, engQData){
-            loggingImp.logDatabaseQuery(handlerInfo, 'Put', err, engQData, engsQ.sql);
+            logging.logDatabaseQuery(handlerInfo, 'Put', err, engQData, engsQ.sql);
             if(err){
                 return reject(err);
             }

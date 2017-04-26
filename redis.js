@@ -1,3 +1,6 @@
+var config = require("config");
+
+
 var redis_config = {
     host: config.get('redisSettings.host'),
     port: config.get('redisSettings.port')
