@@ -45,6 +45,8 @@ app.get('/ping', function(req, res){res.send('Ping Pong!!')});
 app.post('/requestRide',                   driver.request_ride);
 app.post('/acceptRequest',                 driver.accept_request);
 app.post('/getDriverAppData',              read.get_driver_app_data);
+app.post('/getDashboardData',              read.get_dashboard_data);
+
 
 
 // development only

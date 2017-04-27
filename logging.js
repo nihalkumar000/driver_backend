@@ -17,6 +17,13 @@ var debuggingPermissions = {
 
         rideRequest         : true,
         acceptRequest      : true
+    },
+    read        : {
+        loggingEnabled      : true,
+        defaultLoggingLevel : levels.trace,
+        
+        getDriverAppData    : true,
+        getDashboardData    : true
     }
 };
 exports.trace               = trace;
