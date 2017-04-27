@@ -42,17 +42,21 @@ function acceptRequest(req, res){
     logging.trace(handlerInfo, {REQUEST: req.body});
 
     var requestId = parseInt(req.body.requestId);
-    var driver_id = parseInt(req.body.driverId);
+    var driverId = parseInt(req.body.driverId);
     var tasks = [];
 
+    tasks.push(driverAvailable.bind(null, handlerInfo, driverId));
     tasks.push(checkRedisLock.bind(null, handlerInfo, requestId));
     tasks.push(redisLock.bind(null, handlerInfo, requestId));
-    tasks.push(updateEngagements.bind(null, handlerInfo, requestId, driver_id));
+    tasks.push(updateEngagements.bind(null, handlerInfo, requestId, driverId));
     async.waterfall(tasks, function(asyncErr, asyncData){
         if(asyncErr){
             logging.error(handlerInfo, {ERROR : asyncErr.message});
             if(asyncErr == "Exists"){
                 return res.status(200).send("Already alloted");
+            }
+            if(asyncErr == "Already Occuppied"){
+                return res.status(200).send("Already Occuppied");
             }
             return res.send(asyncErr);
         }
@@ -60,11 +64,11 @@ function acceptRequest(req, res){
     });
 }
 
-function getAvailableDrivers(handlerInfo, cb){
+function getAvailableDrivers(handlerInfo, cb) {
     var drivers = "select driver_id from tb_drivers where is_available = ?";
-    var driversQ = connection.query(drivers, [1], function(err, drivers){
+    var driversQ = connection.query(drivers, [1], function (err, drivers) {
         logging.logDatabaseQuery(handlerInfo, 'Getting all available drivers', err, drivers, driversQ.sql);
-        if(err){
+        if (err) {
             return cb(err);
         }
         cb(null, drivers);
@@ -161,7 +165,20 @@ function updateEngagements(handlerInfo, requestId, driverId, cb){
         });
     }
 
+}
 
+function driverAvailable(handlerInfo, driverId, cb){
+    var avail = "select * from tb_drivers where driver_id = ? AND is_available = 1;"
+    var availQ = connection.query(avail, [driverId], function(aErr, aData){
+        logging.logDatabaseQuery(handlerInfo, 'Check availability of driver', aErr, aData, availQ.sql);
+        if(aErr){
+            return cb(aErr);
+        }
+        if(!aData.length){
+            return cb("Already Occuppied");
+        }
+        cb();
+    })
 }
 
 
