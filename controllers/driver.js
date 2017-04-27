@@ -21,13 +21,15 @@ function rideRequest(req, res) {
     var customer_id = parseInt(req.body.customerId);
     var tasks = [];
     tasks.push(getAvailableDrivers.bind(null, handlerInfo));
-    tasks.push(putEngagements.bind(null, handlerInfo, customer_id));
+    tasks.push(putRequest.bind(null, handlerInfo, customer_id));
+    tasks.push(putSession.bind(null, handlerInfo, customer_id));
+
     async.waterfall(tasks, function(asyncErr, asyncData){
         if(asyncErr){
             logging.error(handlerInfo, {ERROR : asyncErr.message});
-            return res.send(asyncErr)
+            return res.status(500).send(asyncErr)
         }
-        res.send("Request Recieved");
+        res.status(200).send("Request Recieved");
     });
 }
 
@@ -41,12 +43,11 @@ function acceptRequest(req, res){
 
     var requestId = parseInt(req.body.requestId);
     var driver_id = parseInt(req.body.driverId);
-    var hide_id   = parseInt(req.body.hideId);
     var tasks = [];
 
-    tasks.push(checkRedisLock.bind(null, handlerInfo, hide_id));
-    tasks.push(redisLock.bind(null, handlerInfo, hide_id));
-    tasks.push(updateEngagements.bind(null, handlerInfo, requestId, hide_id, driver_id));
+    tasks.push(checkRedisLock.bind(null, handlerInfo, requestId));
+    tasks.push(redisLock.bind(null, handlerInfo, requestId));
+    tasks.push(updateEngagements.bind(null, handlerInfo, requestId, driver_id));
     async.waterfall(tasks, function(asyncErr, asyncData){
         if(asyncErr){
             logging.error(handlerInfo, {ERROR : asyncErr.message});
@@ -70,16 +71,32 @@ function getAvailableDrivers(handlerInfo, cb){
     });
 }
 
-function putEngagements(handlerInfo, customerId, driverIdArr, cb){
+function putRequest(handlerInfo, customerId, driverIdArr, cb){
+    var values = [0, customerId, constants.rideStatus.REQUESTED];
+    var putReq = "INSERT INTO tb_requests(driver_id, customer_id, status) VALUES (?)";
+    var reqQ = connection.query(putReq, [values], function(reqErr, reqD){
+        logging.logDatabaseQuery(handlerInfo, 'Put request data', reqErr, reqD, reqQ.sql);
+        console.log(reqD);
+        if(reqErr){
+            return cb(reqErr);
+        }
+       
+        cb(null, {"driverIdArr" : driverIdArr, "requestId" : reqD.insertId});
+    });
+}
+
+
+function putSession(handlerInfo, customerId, waterfallObj, cb){
+    var driverIdArr = waterfallObj["driverIdArr"];
+    var requestId = waterfallObj["requestId"];
     var values = [];
-    var rand = Math.random()*100000;
     for(var i=0; i< driverIdArr.length; i++){
-        var driver = [driverIdArr[i].driver_id, customerId, 1, rand];
+        var driver = [driverIdArr[i].driver_id, customerId, requestId, constants.rideStatus.REQUESTED];
         values.push(driver);
     }
-    var putEng = "INSERT INTO tb_requests(driver_id, customer_id, status, hide_id) VALUES ?";
+    var putEng = "INSERT INTO tb_sessions(driver_id, customer_id, request_id, status)  VALUES ?";
     var engsQ = connection.query(putEng, [values], function(err, engQData){
-        logging.logDatabaseQuery(handlerInfo, 'Put', err, engQData, engsQ.sql);
+        logging.logDatabaseQuery(handlerInfo, 'Put session data', err, engQData, engsQ.sql);
         if(err){
             return cb(err);
         }
@@ -88,10 +105,11 @@ function putEngagements(handlerInfo, customerId, driverIdArr, cb){
 }
 
 
-function updateEngagements(handlerInfo, requestId, hideId, driverId, cb){
+function updateEngagements(handlerInfo, requestId, driverId, cb){
     var tasks = [];
     tasks.push(updateDriverEng.bind(null, handlerInfo, requestId, driverId));
-    tasks.push(updateOtherDriverEng.bind(null, handlerInfo, hideId, driverId));
+    tasks.push(updateOtherDriverEng.bind(null, handlerInfo, requestId, driverId));
+    tasks.push(engDriver.bind(null, handlerInfo, driverId));
     
     async.series(tasks, function(asyncErr, asyncData){
         if(asyncErr){
@@ -102,25 +120,41 @@ function updateEngagements(handlerInfo, requestId, hideId, driverId, cb){
     });
     
     function updateDriverEng(handlerInfo, requestId, driverId, cb){
-        var driverEng = "UPDATE tb_requests AS a JOIN tb_drivers as b " +
-        "ON a.driver_id = b.driver_id " +
-        "SET a.status = ?, b.is_available = 0 " +
-        "WHERE a.driver_id = ? AND a.request_id = ?";
-        var driverEngQ = connection.query(driverEng, [constants.rideStatus.ACCEPTED, driverId, requestId], function(uErr, uData){
+        var driverEng = "UPDATE tb_requests AS a "+
+        "JOIN tb_sessions as b " +
+        "ON a.request_id = b.request_id " +
+        "SET a.status = ?, a.pickup_time = NOW(), a.driver_id = ?, a.session_id = b.session_id " +
+        "WHERE a.request_id = ? AND b.driver_id = ?";
+        var driverEngQ = connection.query(driverEng, [constants.rideStatus.PICKUP, driverId, requestId, driverId], function(uErr, uData){
+            logging.logDatabaseQuery(handlerInfo, 'Updating request for driver', uErr, uData, driverEngQ.sql);
             if(uErr){
-                logging.logDatabaseQuery(handlerInfo, 'Updating Eng Err', uErr, uData, driverEngQ.sql); 
                 return cb(uErr);
             };
             cb();
         });
     }
-    function updateOtherDriverEng(handlerInfo, hideId, driverId, cb){
-        var driverEng = "UPDATE tb_requests "+
-            "SET status = ? "+
-            "WHERE hide_id = ? AND driver_id != ?";
-        var driverEngQ = connection.query(driverEng, [constants.rideStatus.ALLOTED_TO_OTHER_DRIVER, hideId, driverId], function(uErr, uData){
+    
+    function updateOtherDriverEng(handlerInfo, requestId, driverId, cb){
+        var driverEng = "UPDATE tb_sessions "+
+            "SET status = (CASE WHEN driver_id = ? THEN ? ELSE ? END) "+
+            "WHERE request_id = ?";
+        var driverEngQ = connection.query(driverEng, [driverId, constants.rideStatus.PICKUP,
+            constants.rideStatus.ALLOTED_TO_OTHER_DRIVER, requestId], function(uErr, uData){
+            logging.logDatabaseQuery(handlerInfo, 'Updating session for other drivers', uErr, uData, driverEngQ.sql);
             if(uErr){
-                logging.logDatabaseQuery(handlerInfo, 'Updating Eng Err', uErr, uData, driverEngQ.sql);
+                return cb(uErr);
+            };
+            cb();
+        });
+    }
+
+    function engDriver(handlerInfo, driverId, cb){
+        var driverEng = "UPDATE tb_drivers " +
+            "SET is_available = 0 "+
+            "WHERE driver_id = ? ";
+        var uDriver = connection.query(driverEng, [driverId], function(uErr, uData){
+            logging.logDatabaseQuery(handlerInfo, 'Updating  driver', uErr, uData, uDriver.sql);
+            if(uErr){
                 return cb(uErr);
             };
             cb();
@@ -131,8 +165,9 @@ function updateEngagements(handlerInfo, requestId, hideId, driverId, cb){
 }
 
 
-function checkRedisLock(handlerInfo, hideId, cb){
-    redis.exists(hideId, function(eErr, doesExist) {
+function checkRedisLock(handlerInfo, requestId, cb){
+    redis.exists(requestId, function(eErr, doesExist) {
+        logging.logDatabaseQuery(handlerInfo, 'Getting redis key', eErr, doesExist);
         if(eErr){
             return cb(eErr);
         }
@@ -141,17 +176,19 @@ function checkRedisLock(handlerInfo, hideId, cb){
 }
 
 
-function redisLock(handlerInfo, hideId, doesExist,  cb){
+function redisLock(handlerInfo, requestId, doesExist,  cb){
     if(doesExist){
         return cb("Exists");
     }
-    redis.set(hideId, "true", function(eErr, result) {
+    redis.set(requestId, "true", function(eErr, result) {
+        logging.logDatabaseQuery(handlerInfo, 'Setting redis', eErr, result);
         if(!eErr) {
-            redis.expire(hideId, 60);
+            redis.expire(requestId, 60);
         }
         cb();
     });
 }
+
 /*
 function getAvailableDrivers(handlerInfo){
     return newPromise(function(resolve, reject){

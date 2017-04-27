@@ -8,6 +8,8 @@ exports.accept_request      = accept_request;
 
 
 function request_ride(req, res) {
+    res.header("Access-Control-Allow-Origin", "*");
+
     var handlerInfo = {
         apiModule : 'driver',
         apiHandler: 'requestRide'};
@@ -17,6 +19,8 @@ function request_ride(req, res) {
 };
 
 function accept_request(req, res){
+    res.header("Access-Control-Allow-Origin", "*");
+
     var handlerInfo = {
         apiModule : 'driver',
         apiHandler: 'acceptRequest'};
