@@ -24,6 +24,12 @@ var debuggingPermissions = {
         
         getDriverAppData    : true,
         getDashboardData    : true
+    },
+    cron        : {
+        loggingEnabled      : true,
+        defaultLoggingLevel : levels.trace,
+
+        completeRides       : true
     }
 };
 exports.trace               = trace;

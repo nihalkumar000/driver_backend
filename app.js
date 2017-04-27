@@ -22,6 +22,7 @@ var redis           = require('./redis');
 var utils           = require('./controllers/utils');
 var driver          = require('./routes/driver');
 var read            = require('./routes/read');
+var cron            = require('./routes/cron');
 
 
 
@@ -46,6 +47,8 @@ app.post('/requestRide',                   driver.request_ride);
 app.post('/acceptRequest',                 driver.accept_request);
 app.post('/getDriverAppData',              read.get_driver_app_data);
 app.post('/getDashboardData',              read.get_dashboard_data);
+
+app.post('/completeRides',                 cron.complete_rides);
 
 
 

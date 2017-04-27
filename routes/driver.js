@@ -12,7 +12,8 @@ function request_ride(req, res) {
 
     var handlerInfo = {
         apiModule : 'driver',
-        apiHandler: 'requestRide'};
+        apiHandler: 'requestRide'
+    };
     logging.trace(handlerInfo, {REQUEST: req.body});
 
     driver.rideRequest(req, res);

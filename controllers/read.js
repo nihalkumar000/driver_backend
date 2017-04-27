@@ -78,7 +78,7 @@ function getDriverTasks(handlerInfo, driverId, cb) {
         var tasksObj = {
             "waiting" : waiting,
             "ongoing" : ongoing,
-            "complete" : complete
+            "completed" : complete
         };
         cb(null, tasksObj);
     });
